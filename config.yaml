@@ -1,0 +1,91 @@
+# ======================================================================
+#  Nifty intraday option-buying agent — configuration
+#  Secrets go in .env (see .env.example), never in this file.
+# ======================================================================
+
+mode: paper                 # paper | live
+# To trade live you need ALL THREE: mode: live, this exact phrase, and the --live flag.
+live_confirm: ""            # set to: I ACCEPT REAL MONEY RISK
+
+broker:
+  user_id: ${ALICE_USER_ID}
+  api_key: ${ALICE_API_KEY}
+  expected_static_ip: ""    # live only: the static IP whitelisted with Alice Blue
+
+underlying:
+  name: NIFTY
+  index_exchange: INDICES
+  index_token: 26000        # NIFTY 50 index token on Alice Blue
+  option_exchange: NFO
+  strike_step: 50
+  lot_size_fallback: 65     # real lot size is read from the contract master
+
+strategy:
+  name: orb
+  timeframe_min: 5
+  orb_start: "09:15"
+  orb_end: "09:30"          # opening range = first 15 minutes
+  entry_end: "13:30"        # no new entries after this (theta + chop risk)
+  breakout_buffer_pts: 5
+  min_range_pts: 30         # skip very narrow (noisy) opening ranges
+  max_range_pts: 150        # skip very wide ranges (move already happened)
+  ema_filter: true
+  ema_period: 20
+  strike_itm_offset: 0      # 0 = ATM, 1 = one strike in-the-money
+  min_days_to_expiry: 1     # 1 = never buy 0-DTE; on expiry Tuesday it uses next week's expiry
+
+risk:
+  capital: 300000           # SET THIS to the capital you allocate to the bot
+  risk_per_trade_pct: 1.0   # max loss per trade if SL hits (Rs 3,000 here)
+  max_capital_per_trade_pct: 25
+  max_lots: 2
+  sl_pct: 20                # stop-loss = 20% below option entry price
+  target_rr: 2.0            # target = 2x the risk
+  trail_after_rr: 1.0       # once +1R, move SL to breakeven and trail by 1R
+  trail_gap_rr: 1.0
+  max_trades_per_day: 2
+  max_daily_loss: 6000      # kill switch: realized + open loss
+  min_premium: 60
+  max_premium: 400
+  max_spread_pct: 3
+  square_off_time: "15:10"
+  data_stale_sec: 10
+
+execution:
+  tick_size: 0.05
+  entry_limit_buffer_ticks: 4   # entry limit = ask + 4 ticks (marketable limit, capped)
+  entry_timeout_sec: 10
+  quote_timeout_sec: 5
+  max_quote_age_sec: 5
+  exit_timeout_sec: 4
+  max_exit_attempts: 5          # after this, falls back to a market (MPP) order
+  sl_limit_buffer_pct: 5        # SL-limit price this far below trigger
+  sl_unfilled_sec: 3            # SL triggered but unfilled this long -> active exit
+  reconcile_every_sec: 30
+
+live:
+  max_lots: 1                   # overrides risk.max_lots while live (start small)
+
+paper:
+  slippage_ticks: 2
+
+charges:                        # verify against Alice Blue's current charge sheet
+  brokerage_per_order: 20
+  stt_sell_pct: 0.15            # options STT on sell premium (from 1 Apr 2026)
+  exchange_txn_pct: 0.03503
+  sebi_per_crore: 10
+  stamp_buy_pct: 0.003
+  gst_pct: 18
+
+calendar:
+  holidays: []                  # add NSE trading holidays as "YYYY-MM-DD"
+
+alerts:
+  telegram_bot_token: ${TELEGRAM_BOT_TOKEN}
+  telegram_chat_id: ${TELEGRAM_CHAT_ID}
+
+storage:
+  db_path: data/trader.db
+  tick_dir: data/ticks
+  log_dir: data/logs
+  record_ticks: true
